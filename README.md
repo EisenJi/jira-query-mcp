@@ -41,15 +41,15 @@ npm install
     "jira-query": {
       "command": "node",
       "args": [
-        "/path/to/your/jira-query/index.js"
+        "/path/to/your/jira-query-mcp/index.js"
       ],
+      "cwd": "/path/to/your/jira-query-mcp",
       "env": {
         "NODE_TLS_REJECT_UNAUTHORIZED": "0",
         "JIRA_HOST": "https://your-jira-instance.com",
         "JIRA_API_TOKEN": "your-jira-api-token",
         "PROXY_AGENT": "socks5h://127.0.0.1:1080"
       },
-      "cwd": "/path/to/your/jira-query",
       "disabled": false,
       "autoApprove": [
         "get_jira_issue"
@@ -68,7 +68,10 @@ npm install
   "mcpServers": {
     "jira-query": {
       "command": "node",
-      "args": ["index.js"],
+      "args": [
+        "/path/to/your/jira-query-mcp/index.js"
+      ],
+      "cwd": "/path/to/your/jira-query-mcp",
       "env": {
         "NODE_TLS_REJECT_UNAUTHORIZED": "0",
         "JIRA_HOST": "https://your-jira-instance.com",
@@ -205,7 +208,7 @@ get_jira_issue({ issueKey: "PROJ-123" })
 ## 项目结构
 
 ```
-jira-query/
+jira-query-mcp/
 ├── index.js           # MCP 服务器主文件
 ├── package.json       # 项目依赖配置
 ├── package-lock.json  # 依赖锁定文件

@@ -48,6 +48,7 @@ npm install
         "NODE_TLS_REJECT_UNAUTHORIZED": "0",
         "JIRA_HOST": "https://your-jira-instance.com",
         "JIRA_API_TOKEN": "your-jira-api-token",
+        "JIRA_API_VERSION": "2",
         "PROXY_AGENT": "socks5h://127.0.0.1:1080"
       },
       "disabled": false,
@@ -76,6 +77,7 @@ npm install
         "NODE_TLS_REJECT_UNAUTHORIZED": "0",
         "JIRA_HOST": "https://your-jira-instance.com",
         "JIRA_API_TOKEN": "your-jira-api-token",
+        "JIRA_API_VERSION": "2",
         "PROXY_AGENT": "socks5h://127.0.0.1:1080"
       },
       "disabled": false,
@@ -100,6 +102,7 @@ npm install
 
 | 变量名 | 描述 | 示例 | 默认值 |
 |--------|------|------|--------|
+| `JIRA_API_VERSION` | Jira REST API 版本 | `2` 或 `3` | `2` |
 | `PROXY_AGENT` | 代理服务器地址 | `socks5h://127.0.0.1:1080` | 无（不使用代理） |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | 是否验证 TLS 证书 | `0` 或 `1` | `1` |
 

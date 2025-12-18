@@ -38,7 +38,8 @@ const proxyAgent = createProxyAgent(process.env.PROXY_AGENT);
 // Jira 配置
 const JIRA_CONFIG = {
   host: process.env.JIRA_HOST,
-  token: process.env.JIRA_API_TOKEN
+  token: process.env.JIRA_API_TOKEN,
+  apiVersion: process.env.JIRA_API_VERSION || '2'
 };
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -68,7 +69,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     if (name === 'get_jira_issue') {
       const { issueKey } = args;
-      const url = `${JIRA_CONFIG.host}/rest/api/2/issue/${issueKey}`;
+      const url = `${JIRA_CONFIG.host}/rest/api/${JIRA_CONFIG.apiVersion}/issue/${issueKey}`;
 
       const fetchOptions = {
         headers: {

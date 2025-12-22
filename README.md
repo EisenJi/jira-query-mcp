@@ -5,6 +5,7 @@
 ## 功能特性
 
 - 通过 Jira 问题 Key 查询详细信息
+- 创建一个基础 Jira 工单（ticket），并在创建后自动查询详情
 - 支持代理配置（可选）
 - 返回结构化的 Jira 问题数据，包括：
   - 基本信息（标题、描述、状态、负责人等）
@@ -54,7 +55,8 @@ npm install
       },
       "disabled": false,
       "autoApprove": [
-        "get_jira_issue"
+        "get_jira_issue",
+        "create_jira_issue"
       ]
     }
   }
@@ -176,6 +178,58 @@ get_jira_issue({ issueKey: "PROJ-123" })
 - 时间信息（创建时间、更新时间）
 - 标签和评论列表
 - 附件信息（文件名、作者、创建时间、大小、MIME类型、下载链接）
+
+### create_jira_issue
+
+创建一个基础 Jira 工单（ticket），并在创建完成后自动调用 `get_jira_issue` 同样的接口拉取详情。
+
+**参数：**
+- `projectKey` (string): Jira 项目的 Key，例如 `"PROJ"`
+- `summary` (string): 工单标题
+- `description` (string, optional): 工单描述
+- `issueType` (string, optional): 工单类型，例如 `"Task"` / `"Bug"`，默认 `"Task"`
+
+**示例：**
+```javascript
+// 在 Kiro IDE 中使用
+create_jira_issue({
+  projectKey: "PROJ",
+  summary: "Investigate login timeout",
+  description: "Steps to reproduce: ...",
+  issueType: "Task"
+})
+```
+
+**返回：**
+- `message`: 创建成功提示
+- `created`: Jira 创建接口直接返回的 `key/id/self`
+- `issue`: 创建后再次查询到的结构化 issue 数据（与 `get_jira_issue` 一致）
+
+### create_jira_ticket_template
+
+按固定模板创建工单，目标是生成类似：
+- **Summary**：`【子应用】标题`
+- **Description**：包含“提出日期 / 任务描述 / 解决方案（留空）”
+
+**参数：**
+- `projectKey` (string): Jira 项目的 Key，例如 `"MYSCHCN"`
+- `appName` (string): 子应用名称（会被包裹在中文中括号 `【】` 中）
+- `title` (string): 工单标题（拼接在 `【appName】` 后）
+- `taskDescription` (string): 放到 “任务描述：” 下面的正文
+- `submittedDate` (string, optional): 提出日期（`YYYY-MM-DD`），默认取本地当天日期
+- `issueType` (string, optional): 工单类型，默认 `"Task"`
+
+**示例：**
+```javascript
+create_jira_ticket_template({
+  projectKey: "MYSCHCN",
+  appName: "微信运营平台运维",
+  title: "用户信息界面，需要将未关注的用户和关注后取消的用户区分开",
+  taskDescription: "（这里填写详细任务描述，可多行）",
+  submittedDate: "2025-11-27",
+  issueType: "Task"
+})
+```
 
 ## 故障排除
 

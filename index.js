@@ -42,6 +42,134 @@ const JIRA_CONFIG = {
   apiVersion: process.env.JIRA_API_VERSION || '2'
 };
 
+function simplifyJiraIssue(issue) {
+  return {
+    key: issue.key,
+    summary: issue.fields.summary,
+    description: issue.fields.description,
+    status: issue.fields.status?.name,
+    assignee: issue.fields.assignee?.displayName || 'Unassigned',
+    priority: issue.fields.priority?.name,
+    issueType: issue.fields.issuetype?.name,
+    created: issue.fields.created,
+    updated: issue.fields.updated,
+    labels: issue.fields.labels,
+    attachments: issue.fields.attachment?.map(a => ({
+      filename: a.filename,
+      author: a.author.displayName,
+      created: a.created,
+      size: a.size,
+      mimeType: a.mimeType,
+      content: a.content
+    })) || [],
+    comments: issue.fields.comment?.comments?.map(c => ({
+      author: c.author.displayName,
+      body: c.body,
+      created: c.created
+    })) || []
+  };
+}
+
+function formatLocalDateYYYYMMDD(date = new Date()) {
+  // Use local time (not UTC) and stable YYYY-MM-DD formatting.
+  // sv-SE locale formats as "YYYY-MM-DD".
+  return new Intl.DateTimeFormat('sv-SE', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function buildTemplateSummary({ appName, title }) {
+  const trimmedApp = String(appName || '').trim();
+  const trimmedTitle = String(title || '').trim();
+  if (!trimmedApp) throw new Error('appName is required');
+  if (!trimmedTitle) throw new Error('title is required');
+  return `【${trimmedApp}】${trimmedTitle}`;
+}
+
+function buildTemplateDescription({ submittedDate, taskDescription }) {
+  const dateStr = (submittedDate && String(submittedDate).trim()) || formatLocalDateYYYYMMDD();
+  const desc = (taskDescription && String(taskDescription).trim()) || '';
+  return [
+    `提出日期： ${dateStr}`,
+    '',
+    '任务描述：',
+    desc,
+    '',
+    '解决方案：',
+    '',
+  ].join('\n');
+}
+
+async function jiraRequest(url, options = {}) {
+  const fetchOptions = {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${JIRA_CONFIG.token}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  };
+
+  if (proxyAgent) {
+    fetchOptions.agent = proxyAgent;
+  }
+
+  const response = await fetch(url, fetchOptions);
+  if (!response.ok) {
+    let errorDetail = '';
+    try {
+      const text = await response.text();
+      if (text) errorDetail = ` - ${text}`;
+    } catch {
+      // ignore
+    }
+    throw new Error(`HTTP ${response.status}: ${response.statusText}${errorDetail}`);
+  }
+  return response;
+}
+
+async function fetchIssueByKey(issueKey) {
+  const url = `${JIRA_CONFIG.host}/rest/api/${JIRA_CONFIG.apiVersion}/issue/${issueKey}`;
+  const response = await jiraRequest(url);
+  return await response.json();
+}
+
+async function createIssueAndFetch({ projectKey, summary, description, issueType }) {
+  const createUrl = `${JIRA_CONFIG.host}/rest/api/${JIRA_CONFIG.apiVersion}/issue`;
+
+  const fields = {
+    project: { key: projectKey },
+    summary,
+    issuetype: { name: issueType || 'Task' },
+  };
+  if (typeof description === 'string' && description.length > 0) {
+    fields.description = description;
+  }
+
+  const createResponse = await jiraRequest(createUrl, {
+    method: 'POST',
+    body: JSON.stringify({ fields }),
+  });
+
+  const created = await createResponse.json();
+  const createdKey = created?.key;
+  if (!createdKey) {
+    throw new Error('Create issue succeeded but no issue key was returned by Jira.');
+  }
+
+  const issue = await fetchIssueByKey(createdKey);
+  return {
+    created: {
+      key: createdKey,
+      id: created?.id,
+      self: created?.self,
+    },
+    issue,
+  };
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -59,6 +187,67 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['issueKey'],
         },
       },
+      {
+        name: 'create_jira_issue',
+        description: 'Create a basic Jira issue (ticket) and then fetch it by key',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectKey: {
+              type: 'string',
+              description: "The Jira project key (e.g., 'PROJ')",
+            },
+            summary: {
+              type: 'string',
+              description: 'Summary/title of the issue',
+            },
+            description: {
+              type: 'string',
+              description: '(Optional) Description of the issue',
+            },
+            issueType: {
+              type: 'string',
+              description: "(Optional) Issue type name (e.g., 'Task', 'Bug'). Default: 'Task'",
+            },
+          },
+          required: ['projectKey', 'summary'],
+        },
+      },
+      {
+        name: 'create_jira_ticket_template',
+        description:
+          'Create a Jira ticket using a fixed template: summary as 【appName】title and description with 提出日期/任务描述/解决方案(留空), then fetch it',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectKey: {
+              type: 'string',
+              description: "The Jira project key (e.g., 'PROJ')",
+            },
+            appName: {
+              type: 'string',
+              description: "The sub-application name to be wrapped in Chinese brackets, e.g. '微信运营平台运维'",
+            },
+            title: {
+              type: 'string',
+              description: 'The ticket title (will be appended after 【appName】)',
+            },
+            taskDescription: {
+              type: 'string',
+              description: 'Task description body to be placed under “任务描述：”',
+            },
+            submittedDate: {
+              type: 'string',
+              description: "(Optional) 提出日期 in YYYY-MM-DD. Default: today's local date",
+            },
+            issueType: {
+              type: 'string',
+              description: "(Optional) Issue type name (e.g., 'Task', 'Bug'). Default: 'Task'",
+            },
+          },
+          required: ['projectKey', 'appName', 'title', 'taskDescription'],
+        },
+      },
     ],
   };
 });
@@ -69,56 +258,78 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     if (name === 'get_jira_issue') {
       const { issueKey } = args;
-      const url = `${JIRA_CONFIG.host}/rest/api/${JIRA_CONFIG.apiVersion}/issue/${issueKey}`;
-
-      const fetchOptions = {
-        headers: {
-          'Authorization': `Bearer ${JIRA_CONFIG.token}`,
-          'Content-Type': 'application/json',
-        },
-      };
-
-      if (proxyAgent) {
-        fetchOptions.agent = proxyAgent;
-      }
-
-      const response = await fetch(url, fetchOptions);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const issue = await response.json();
+      const issue = await fetchIssueByKey(issueKey);
 
       return {
         content: [
           {
             type: 'text',
             text: JSON.stringify({
-              key: issue.key,
-              summary: issue.fields.summary,
-              description: issue.fields.description,
-              status: issue.fields.status.name,
-              assignee: issue.fields.assignee?.displayName || 'Unassigned',
-              priority: issue.fields.priority.name,
-              issueType: issue.fields.issuetype.name,
-              created: issue.fields.created,
-              updated: issue.fields.updated,
-              labels: issue.fields.labels,
-              attachments: issue.fields.attachment?.map(a => ({
-                filename: a.filename,
-                author: a.author.displayName,
-                created: a.created,
-                size: a.size,
-                mimeType: a.mimeType,
-                content: a.content
-              })) || [],
-              comments: issue.fields.comment?.comments?.map(c => ({
-                author: c.author.displayName,
-                body: c.body,
-                created: c.created
-              })) || []
+              ...simplifyJiraIssue(issue),
             }, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (name === 'create_jira_issue') {
+      const { projectKey, summary, description, issueType } = args;
+      const { created, issue } = await createIssueAndFetch({
+        projectKey,
+        summary,
+        description,
+        issueType,
+      });
+      const simplified = simplifyJiraIssue(issue);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                message: 'Issue created successfully',
+                created,
+                issue: simplified,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+
+    if (name === 'create_jira_ticket_template') {
+      const { projectKey, appName, title, taskDescription, submittedDate, issueType } =
+        args;
+      const summary = buildTemplateSummary({ appName, title });
+      const description = buildTemplateDescription({ submittedDate, taskDescription });
+
+      const { created, issue } = await createIssueAndFetch({
+        projectKey,
+        summary,
+        description,
+        issueType,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                message: 'Issue created successfully (template)',
+                template: {
+                  summary,
+                  description,
+                },
+                created,
+                issue: simplifyJiraIssue(issue),
+              },
+              null,
+              2
+            ),
           },
         ],
       };

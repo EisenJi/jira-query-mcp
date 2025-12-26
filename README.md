@@ -212,7 +212,7 @@ create_jira_issue({
 - **Description**：包含“提出日期 / 任务描述 / 解决方案（留空）”
 
 **参数：**
-- `projectKey` (string): Jira 项目的 Key，例如 `"MYSCHCN"`
+- `projectKey` (string): Jira 项目的 Key，例如 `"PROJ"`
 - `appName` (string): 子应用名称（会被包裹在中文中括号 `【】` 中）
 - `title` (string): 工单标题（拼接在 `【appName】` 后）
 - `taskDescription` (string): 放到 “任务描述：” 下面的正文
@@ -222,14 +222,36 @@ create_jira_issue({
 **示例：**
 ```javascript
 create_jira_ticket_template({
-  projectKey: "MYSCHCN",
-  appName: "微信运营平台运维",
-  title: "用户信息界面，需要将未关注的用户和关注后取消的用户区分开",
+  projectKey: "PROJ",
+  appName: "c",
+  title: "c",
   taskDescription: "（这里填写详细任务描述，可多行）",
   submittedDate: "2025-11-27",
   issueType: "Task"
 })
 ```
+
+### add_jira_comment
+
+为指定的 Jira 工单添加评论，并在添加完成后自动重新获取工单详情（包含最新的评论列表）。
+
+**参数：**
+- `issueKey` (string): Jira 问题的 Key，例如 `"PROJ-123"`
+- `comment` (string): 要添加的评论内容
+
+**示例：**
+```javascript
+// 在 Kiro IDE 中使用
+add_jira_comment({
+  issueKey: "PRM-14151",
+  comment: "已完成修复，请测试。"
+})
+```
+
+**返回数据包含：**
+- `message`: 操作成功消息
+- `comment`: 新添加的评论信息（id、body、author、created、self）
+- `issue`: 完整的工单信息（包含更新后的评论列表）
 
 ## 故障排除
 

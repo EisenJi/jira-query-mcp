@@ -170,6 +170,25 @@ async function createIssueAndFetch({ projectKey, summary, description, issueType
   };
 }
 
+async function addCommentToIssue(issueKey, commentText) {
+  const commentUrl = `${JIRA_CONFIG.host}/rest/api/${JIRA_CONFIG.apiVersion}/issue/${issueKey}/comment`;
+  const response = await jiraRequest(commentUrl, {
+    method: 'POST',
+    body: JSON.stringify({
+      body: commentText,
+    }),
+  });
+  
+  const comment = await response.json();
+  return {
+    id: comment.id,
+    body: comment.body,
+    author: comment.author?.displayName || 'Unknown',
+    created: comment.created,
+    self: comment.self,
+  };
+}
+
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
@@ -248,6 +267,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['projectKey', 'appName', 'title', 'taskDescription'],
         },
       },
+      {
+        name: 'add_jira_comment',
+        description: 'Add a comment to a Jira issue',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            issueKey: {
+              type: 'string',
+              description: 'The Jira issue key (e.g., PROJ-123)',
+            },
+            comment: {
+              type: 'string',
+              description: 'The comment to add to the issue',
+            },
+          },
+          required: ['issueKey', 'comment'],
+        },
+      },
     ],
   };
 });
@@ -291,6 +328,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 message: 'Issue created successfully',
                 created,
                 issue: simplified,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+
+    if (name === 'add_jira_comment') {
+      const { issueKey, comment } = args;
+      const commentResult = await addCommentToIssue(issueKey, comment);
+      
+      // 重新获取 issue 以包含最新的 comments
+      const issue = await fetchIssueByKey(issueKey);
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                message: 'Comment added successfully',
+                comment: commentResult,
+                issue: simplifyJiraIssue(issue),
               },
               null,
               2

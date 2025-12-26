@@ -88,18 +88,25 @@ function buildTemplateSummary({ appName, title }) {
   return `【${trimmedApp}】${trimmedTitle}`;
 }
 
-function buildTemplateDescription({ submittedDate, taskDescription }) {
+function buildTemplateDescription({ submittedDate, submitter, taskDescription }) {
   const dateStr = (submittedDate && String(submittedDate).trim()) || formatLocalDateYYYYMMDD();
+  const submitterStr = (submitter && String(submitter).trim()) || '';
   const desc = (taskDescription && String(taskDescription).trim()) || '';
-  return [
+  const lines = [
     `提出日期： ${dateStr}`,
+  ];
+  if (submitterStr) {
+    lines.push(`提出人： ${submitterStr}`);
+  }
+  lines.push(
     '',
     '任务描述：',
     desc,
     '',
     '解决方案：',
     '',
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 async function jiraRequest(url, options = {}) {
@@ -259,6 +266,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'string',
               description: "(Optional) 提出日期 in YYYY-MM-DD. Default: today's local date",
             },
+            submitter: {
+              type: 'string',
+              description: "(Optional) 提出人 (submitter name)",
+            },
             issueType: {
               type: 'string',
               description: "(Optional) Issue type name (e.g., 'Task', 'Bug'). Default: 'Task'",
@@ -363,10 +374,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (name === 'create_jira_ticket_template') {
-      const { projectKey, appName, title, taskDescription, submittedDate, issueType } =
+      const { projectKey, appName, title, taskDescription, submittedDate, submitter, issueType } =
         args;
       const summary = buildTemplateSummary({ appName, title });
-      const description = buildTemplateDescription({ submittedDate, taskDescription });
+      const description = buildTemplateDescription({ submittedDate, submitter, taskDescription });
 
       const { created, issue } = await createIssueAndFetch({
         projectKey,

@@ -209,7 +209,7 @@ create_jira_issue({
 
 按固定模板创建工单，目标是生成类似：
 - **Summary**：`【子应用】标题`
-- **Description**：包含“提出日期 / 任务描述 / 解决方案（留空）”
+- **Description**：包含“提出日期 / 提出人 / 任务描述 / 解决方案（留空）”
 
 **参数：**
 - `projectKey` (string): Jira 项目的 Key，例如 `"PROJ"`
@@ -217,6 +217,7 @@ create_jira_issue({
 - `title` (string): 工单标题（拼接在 `【appName】` 后）
 - `taskDescription` (string): 放到 “任务描述：” 下面的正文
 - `submittedDate` (string, optional): 提出日期（`YYYY-MM-DD`），默认取本地当天日期
+- `submitter` (string, optional): 提出人（如果提供，会在 description 中添加“提出人： xxx”）
 - `issueType` (string, optional): 工单类型，默认 `"Task"`
 
 **示例：**
@@ -224,9 +225,10 @@ create_jira_issue({
 create_jira_ticket_template({
   projectKey: "PROJ",
   appName: "c",
-  title: "c",
+  title: "用户信息界面，需要将未关注的用户和关注后取消的用户区分开",
   taskDescription: "（这里填写详细任务描述，可多行）",
   submittedDate: "2025-11-27",
+  submitter: "张三",
   issueType: "Task"
 })
 ```
